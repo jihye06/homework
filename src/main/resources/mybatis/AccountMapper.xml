@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd"> <!-- mybatis-3-mapper.dtd에 주목 -->
+<mapper namespace="AccountBalanceRepo">
+    <select id="getUserAccountList" parameterType="string" resultType="UserAccount">
+        SELECT  B.ACCOUNT_ID, SUM( DECODE(PAY_CD, 'Y', 1, 'N', -1, 0 ) * PAY_AMT) AS AMT
+          FROM ACCOUNT A, ACCOUNT_DETAIL B
+         WHERE A.ACCOUNT_ID = B.ACCOUNT_ID
+           AND A.USER_ID = #{user_id}
+        GROUP BY B.ACCOUNT_ID
+    </select>
+
+    <select id="getAverageBalanceList" resultType="AverageBalance">
+        SELECT AGE_TIME, AVG(AMT) AS AVG_AMT
+          FROM (
+                 SELECT  A.USER_ID, SUBSTRING(C.AGE, 0, 1)*10 AS AGE_TIME
+                       , SUM( DECODE(PAY_CD, 'Y', 1, 'N', -1, 0 ) * PAY_AMT) AS AMT
+                   FROM ACCOUNT A, ACCOUNT_DETAIL B, USER_TABLE C
+                  WHERE A.ACCOUNT_ID = B.ACCOUNT_ID
+                    AND A.USER_ID = C.USER_ID
+                  GROUP BY A.USER_ID, C.AGE
+              )
+         GROUP BY AGE_TIME
+    </select>
+
+    <select id="getTotAmt" parameterType="int" resultType="TotBalance">
+        SELECT SUM( DECODE(PAY_CD, 'Y', 1, 'N', -1, 0 ) * PAY_AMT) AS AMT
+          FROM ACCOUNT_DETAIL
+         WHERE SUBSTRING(PAY_DATE, 0, 4) = #{year}
+    </select>
+
+    <select id="getPeriodAccountList" parameterType="String" resultType="PeriodAccount">
+        SELECT C.USER_ID, C.NAME, SUM(A.AMT) AS TOT_AMT
+          FROM (
+                 SELECT  ACCOUNT_ID, SUM( DECODE(PAY_CD, 'Y', 1, 'N', -1, 0 ) * PAY_AMT) AS AMT
+                   FROM  ACCOUNT_DETAIL
+                  WHERE PAY_DATE BETWEEN #{stDt} AND #{endt}
+                  GROUP BY ACCOUNT_ID
+               ) A
+            , ACCOUNT B
+            , USER_TABLE C
+        WHERE A.ACCOUNT_ID = B.ACCOUNT_ID
+          AND B.USER_ID = C.USER_ID
+        GROUP BY C.USER_ID, C.NAME
+        ORDER BY SUM(A.AMT) DESC
+    </select>
+</mapper>
